@@ -10,6 +10,8 @@
             margin: 0;
             padding: 0;
             background-color: #f4f4f4;
+            position: relative;
+            min-height: 100vh;
         }
         header {
             background-color: #4CAF50;
@@ -66,6 +68,16 @@
         .error {
             color: red;
         }
+        footer {
+            position: fixed;
+            bottom: 10px;
+            right: 20px;
+            background-color: #4CAF50;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -92,6 +104,10 @@
         </form>
         <div class="response" id="response"></div>
     </div>
+
+    <footer>
+        &copy; OSSG Lagos 2025
+    </footer>
 
     <script>
         async function getStatus() {
