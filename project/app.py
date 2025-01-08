@@ -1,13 +1,23 @@
 from flask import Flask, request, render_template, jsonify
 from shapely.geometry import Point
-from pyproj import Transformer
+from pyproj import CRS
 import geopandas as gpd
 
 app = Flask(__name__)
 
-# Load shapefile once to save time
-shapefile_path = '/mnt/c/Users/hp/Desktop/OSSG/GENERAL_ACQUISITION.shp'
+# Load shapefile and ensure CRS is UTM
+shapefile_path = '/mnt/c/Users/hp/Desktop/OSSG/LAGOS_EXCISION.shp'
 gdf = gpd.read_file(shapefile_path)
+
+# Specify the UTM zone and hemisphere for Easting/Northing
+utm_zone = 31
+northern_hemisphere = True
+utm_crs = CRS.from_string(f"EPSG:326{utm_zone}")  # EPSG code for UTM zone 31N
+
+# Reproject shapefile to UTM if not already in the same CRS
+if gdf.crs != utm_crs:
+    gdf = gdf.to_crs(utm_crs)
+print(f"Shapefile CRS: {gdf.crs}")
 
 @app.route('/')
 def index():
@@ -16,38 +26,40 @@ def index():
 @app.route('/get_status', methods=['POST'])
 def get_status():
     data = request.json
-    coordinate_type = data.get('type')
-    coord_x = float(data.get('x'))
-    coord_y = float(data.get('y'))
+    print(f"Received Data: {data}")
 
-    # Validation
-    if coordinate_type == 'LL':
-        if not (-180 <= coord_x <= 180 and -90 <= coord_y <= 90):
-            return jsonify({"error": "Invalid Longitude/Latitude values."}), 400
-    elif coordinate_type == 'EN':
-        if not (100000 <= coord_x <= 900000 and coord_y > 0):
-            return jsonify({"error": "Invalid Easting/Northing values."}), 400
-    else:
-        return jsonify({"error": "Invalid coordinate type."}), 400
+    # Get easting and northing from request
+    try:
+        easting = float(data.get('x'))
+        northing = float(data.get('y'))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid easting/northing values."}), 400
 
-    # Transform Easting/Northing if needed
-    if coordinate_type == 'EN':
-        utm_zone = 31
-        northern_hemisphere = True
-        transformer = Transformer.from_proj(
-            proj_from=f"+proj=utm +zone={utm_zone} +ellps=WGS84" + (" +south" if not northern_hemisphere else ""),
-            proj_to="EPSG:4326"
-        )
-        coord_x, coord_y = transformer.transform(coord_x, coord_y)
+    # Create a Point geometry using easting and northing
+    target_point = Point(easting, northing)
+    print(f"Target Point: {target_point}")
+    print(f"Shapefile Bounds: {gdf.total_bounds}")
 
-    # Create a Point and filter shapefile data
-    target_point = Point(coord_x, coord_y)
-    filtered_data = gdf[gdf.contains(target_point)]
+    # Filter shapefile data
+    filtered_data = gdf[gdf.geometry.contains(target_point)]
+
+    # Handle precision issues with a buffer
+    if filtered_data.empty:
+        buffered_point = target_point.buffer(1e-6)  # Small buffer in meters
+        filtered_data = gdf[gdf.geometry.intersects(buffered_point)]
 
     if filtered_data.empty:
         return jsonify({"status": "No data found for the given coordinates."})
     
-    return jsonify({"status": "Data found!", "details": filtered_data.to_dict()})
+    # Convert geometries to WKT for serialization
+    filtered_data = filtered_data.copy()
+    filtered_data['geometry'] = filtered_data['geometry'].apply(lambda geom: geom.wkt)
+
+    # Return as JSON
+    return jsonify({
+        "status": "Data found!",
+        "details": filtered_data.to_dict(orient='records')
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)

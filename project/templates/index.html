@@ -4,110 +4,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lagos State Charting Database</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-            position: relative;
-            min-height: 100vh;
-        }
-        header {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            text-align: center;
-        }
-        nav {
-            display: flex;
-            justify-content: center;
-            background-color: #333;
-        }
-        nav a {
-            color: white;
-            padding: 14px 20px;
-            text-decoration: none;
-            text-align: center;
-        }
-        nav a:hover {
-            background-color: #575757;
-        }
-        .container {
-            max-width: 600px;
-            margin: 20px auto;
-            background: white;
-            padding: 20px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-            text-align: center;
-        }
-        input[type="text"] {
-            width: calc(100% - 20px);
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        .response {
-            margin-top: 20px;
-            font-size: 1.1em;
-            color: #333;
-        }
-        .error {
-            color: red;
-        }
-        footer {
-            position: fixed;
-            bottom: 10px;
-            right: 20px;
-            background-color: #4CAF50;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-    </style>
+    <!-- Link to the CSS file in the static folder -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 </head>
 <body>
-    <header>
-        <h1>Welcome to Lagos State Charting Database</h1>
-    </header>
-
     <nav>
-        <a href="#about">About</a>
-        <a href="#payment">Payment</a>
-        <a href="#contact">Contact</a>
-        <a href="#login">Main Login</a>
-        <a href="#dctr">DCTR</a>
+        <div class="nav-left">
+            <!-- Reference the logo image in the static folder -->
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="DCTR Logo" class="logo">
+            <span class="brand">DCTR</span>
+        </div>
+        <div class="nav-center">
+            <a href="#" class="active">Main</a>
+            <a href="#">About</a>
+            <a href="#">Payment</a>
+            <a href="#">Contact</a>
+        </div>
+        <div class="nav-right">
+            <!-- Reference the user icon image in the static folder -->
+            <a href="#" class="login-btn">Login</a>
+            <img src="{{ url_for('static', filename='images/user.png') }}" alt="User" class="user-icon">
+        </div>
     </nav>
 
-    <div class="container">
-        <h2>We’ve made it easy to check the status of your land.</h2>
-        <p>Just enter the coordinates here:</p>
+    <main>
+        <div class="content">
+            <h1>Welcome to Lagos State<br>Charting Database</h1>
+            <p class="subtitle">We've made it easy to check the status of your land.<br>Just enter the coordinates here.</p>
+            
+            <div class="coordinate-inputs">
+                <div class="input-group">
+                    <label for="latitude">Latitude/Easting</label>
+                    <input type="text" id="latitude">
+                </div>
+                <div class="input-group">
+                    <label for="longitude">Longitude/Northing</label>
+                    <input type="text" id="longitude">
+                </div>
+            </div>
 
-        <form id="statusForm">
-            <input type="text" id="latitude" placeholder="Latitude/Easting">
-            <input type="text" id="longitude" placeholder="Longitude/Northing">
-            <button type="button" onclick="getStatus()">Get Status</button>
-        </form>
-        <div class="response" id="response"></div>
-    </div>
-
-    <footer>
-        &copy; OSSG Lagos 2025
-    </footer>
+            <button class="status-btn" onclick="getStatus()">Get Status</button>
+        </div>
+    </main>
 
     <script>
         async function getStatus() {
@@ -115,38 +53,31 @@
             const longitude = document.getElementById('longitude').value.trim();
 
             if (!latitude || !longitude) {
-                document.getElementById('response').innerHTML = 
-                    "<p class='error'>Please fill in both fields.</p>";
+                alert("Please fill in both fields.");
                 return;
             }
 
-            const type = (latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180) 
-                         ? 'LL' : 'EN';
-
-            const responseElement = document.getElementById('response');
-            responseElement.innerHTML = "Fetching status...";
+            const type = (latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180)
+                ? 'LL' : 'EN';
 
             try {
                 const response = await fetch('/get_status', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ type: type, x: latitude, y: longitude })
+                    body: JSON.stringify({ type: type, x: latitude, y: longitude }),
                 });
 
                 if (response.ok) {
                     const result = await response.json();
-                    responseElement.innerHTML = `
-                        <p>Status: <strong>${result.status}</strong></p>
-                        <p>Details: ${JSON.stringify(result.details || 'N/A')}</p>
-                    `;
+                    alert(`Status: ${result.status}\nDetails: ${JSON.stringify(result.details || 'N/A')}`);
                 } else {
                     const error = await response.json();
-                    responseElement.innerHTML = `<p class='error'>Error: ${error.error}</p>`;
+                    alert(`Error: ${error.error}`);
                 }
             } catch (err) {
-                responseElement.innerHTML = `<p class='error'>An error occurred: ${err.message}</p>`;
+                alert(`An error occurred: ${err.message}`);
             }
         }
     </script>
