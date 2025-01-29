@@ -45,16 +45,16 @@ def get_status():
             easting, northing = proj_utm(longitude, latitude)
             print(f"Converted to UTM: Easting: {easting}, Northing: {northing}")
         except ValueError:
-            return jsonify({"error": "Invalid longitude or latitude values"}), 400
+            return jsonify({"status": "error", "message": "Invalid longitude or latitude values"}), 400
     elif coord_type == 'EN':
         try:
             easting = float(x)
             northing = float(y)
             print(f"Using provided UTM coordinates: Easting: {easting}, Northing: {northing}")
         except ValueError:
-            return jsonify({"error": "Invalid easting or northing values"}), 400
+            return jsonify({"status": "error", "message": "Invalid easting or northing values"}), 400
     else:
-        return jsonify({"error": "Invalid input data"}), 400
+        return jsonify({"status": "error", "message": "Invalid input data"}), 400
 
     # Create a point and check if it is within any polygon in the GeoDataFrame
     point = Point(easting, northing)
@@ -62,20 +62,27 @@ def get_status():
 
     # Filter shapefile data
     filtered_data = gdf[gdf.geometry.contains(point)]
+    print(f"Filtered Data: {filtered_data}")
 
     # Handle precision issues with a buffer
     if filtered_data.empty:
         buffered_point = point.buffer(1e-6)  # Small buffer in meters
         filtered_data = gdf[gdf.geometry.intersects(buffered_point)]
+        print(f"Buffered Filtered Data: {filtered_data}")
 
     if filtered_data.empty:
-        return jsonify({"status": "No data found for the given coordinates."})
+        return jsonify({"status": "not found", "message": "No data found for the given coordinates."})
+
+    # Ensure the geometry column is correctly set
+    filtered_data = filtered_data.set_geometry('geometry')
+    print(f"Filtered Data with Geometry: {filtered_data}")
 
     # Convert geometries to WKT for serialization
     filtered_data = filtered_data.copy()
     filtered_data['geometry'] = filtered_data['geometry'].apply(lambda geom: geom.wkt)
+    print(f"Filtered Data with WKT Geometry: {filtered_data}")
 
-    return jsonify(filtered_data.to_dict(orient='records'))
+    return jsonify({"status": "success", "data": filtered_data.to_dict(orient='records')})
 
 if __name__ == '__main__':
     app.run(debug=True)
